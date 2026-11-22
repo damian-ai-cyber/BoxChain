@@ -44,3 +44,9 @@ git clone <URL_DE_TU_REPOSITORIO>
 cd BoxChain
 npm install
 npm run dev
+
+## Autor
+
+- Nombre: Damián Miguel Llamas Ramírez
+- Correo: utm25090238@utma.edu.mx
+- Institución: Universidad Tecnológica Metropolitana de Aguascalientes (UTMA)
