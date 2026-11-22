@@ -6,6 +6,7 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from "./cliente";
-export * from "./registro";
-export * from "./venta";
+export * from "./boxeador";
+export * from "./pelea";
+export * from "./promotora";
+export * from "./torneo";

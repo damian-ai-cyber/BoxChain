@@ -6,8 +6,9 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from "./cambiarMonto";
-export * from "./crearCliente";
-export * from "./crearRegistro";
-export * from "./hacerDevolucion";
-export * from "./registrarVenta";
+export * from "./crearTorneo";
+export * from "./eliminarBoxeador";
+export * from "./eliminarPelea";
+export * from "./inicializarPromotora";
+export * from "./registrarBoxeador";
+export * from "./registrarPelea";

@@ -7,8 +7,6 @@
  */
 
 import {
-  addDecoderSizePrefix,
-  addEncoderSizePrefix,
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
@@ -16,19 +14,15 @@ import {
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
-  getU32Decoder,
-  getU32Encoder,
-  getUtf8Decoder,
-  getUtf8Encoder,
   SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
   SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
   type Address,
-  type Codec,
-  type Decoder,
-  type Encoder,
+  type FixedSizeCodec,
+  type FixedSizeDecoder,
+  type FixedSizeEncoder,
   type Instruction,
   type InstructionWithAccounts,
   type InstructionWithData,
@@ -45,22 +39,21 @@ import {
   type ResolvedInstructionAccount,
   type ResolvedInstructionAccountMeta,
 } from "@solana/program-client-core";
-import { REGISTRO_PROGRAM_ADDRESS } from "../programs";
+import { TORNEOS_BOX_PROGRAM_ADDRESS } from "../programs";
 
-export const CREAR_REGISTRO_DISCRIMINATOR: ReadonlyUint8Array = new Uint8Array([
-  93, 45, 68, 224, 227, 244, 209, 54,
-]);
+export const INICIALIZAR_PROMOTORA_DISCRIMINATOR: ReadonlyUint8Array =
+  new Uint8Array([2, 40, 191, 243, 113, 54, 201, 188]);
 
-export function getCrearRegistroDiscriminatorBytes(): ReadonlyUint8Array {
+export function getInicializarPromotoraDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    CREAR_REGISTRO_DISCRIMINATOR,
+    INICIALIZAR_PROMOTORA_DISCRIMINATOR,
   );
 }
 
-export type CrearRegistroInstruction<
-  TProgram extends string = typeof REGISTRO_PROGRAM_ADDRESS,
-  TAccountOwner extends string | AccountMeta<string> = string,
-  TAccountRegistro extends string | AccountMeta<string> = string,
+export type InicializarPromotoraInstruction<
+  TProgram extends string = typeof TORNEOS_BOX_PROGRAM_ADDRESS,
+  TAccountPromotora extends string | AccountMeta<string> = string,
+  TAccountPropietario extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -68,13 +61,13 @@ export type CrearRegistroInstruction<
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountOwner extends string
-        ? WritableSignerAccount<TAccountOwner> &
-            AccountSignerMeta<TAccountOwner>
-        : TAccountOwner,
-      TAccountRegistro extends string
-        ? WritableAccount<TAccountRegistro>
-        : TAccountRegistro,
+      TAccountPromotora extends string
+        ? WritableAccount<TAccountPromotora>
+        : TAccountPromotora,
+      TAccountPropietario extends string
+        ? WritableSignerAccount<TAccountPropietario> &
+            AccountSignerMeta<TAccountPropietario>
+        : TAccountPropietario,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -82,78 +75,72 @@ export type CrearRegistroInstruction<
     ]
   >;
 
-export type CrearRegistroInstructionData = {
+export type InicializarPromotoraInstructionData = {
   discriminator: ReadonlyUint8Array;
-  nombreNegocio: string;
 };
 
-export type CrearRegistroInstructionDataArgs = { nombreNegocio: string };
+export type InicializarPromotoraInstructionDataArgs = {};
 
-export function getCrearRegistroInstructionDataEncoder(): Encoder<CrearRegistroInstructionDataArgs> {
+export function getInicializarPromotoraInstructionDataEncoder(): FixedSizeEncoder<InicializarPromotoraInstructionDataArgs> {
   return transformEncoder(
-    getStructEncoder([
-      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
-      [
-        "nombreNegocio",
-        addEncoderSizePrefix(getUtf8Encoder(), getU32Encoder()),
-      ],
-    ]),
-    (value) => ({ ...value, discriminator: CREAR_REGISTRO_DISCRIMINATOR }),
+    getStructEncoder([["discriminator", fixEncoderSize(getBytesEncoder(), 8)]]),
+    (value) => ({
+      ...value,
+      discriminator: INICIALIZAR_PROMOTORA_DISCRIMINATOR,
+    }),
   );
 }
 
-export function getCrearRegistroInstructionDataDecoder(): Decoder<CrearRegistroInstructionData> {
+export function getInicializarPromotoraInstructionDataDecoder(): FixedSizeDecoder<InicializarPromotoraInstructionData> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
-    ["nombreNegocio", addDecoderSizePrefix(getUtf8Decoder(), getU32Decoder())],
   ]);
 }
 
-export function getCrearRegistroInstructionDataCodec(): Codec<
-  CrearRegistroInstructionDataArgs,
-  CrearRegistroInstructionData
+export function getInicializarPromotoraInstructionDataCodec(): FixedSizeCodec<
+  InicializarPromotoraInstructionDataArgs,
+  InicializarPromotoraInstructionData
 > {
   return combineCodec(
-    getCrearRegistroInstructionDataEncoder(),
-    getCrearRegistroInstructionDataDecoder(),
+    getInicializarPromotoraInstructionDataEncoder(),
+    getInicializarPromotoraInstructionDataDecoder(),
   );
 }
 
-export type CrearRegistroInput<
-  TAccountOwner extends InstructionSignerInput = InstructionSignerInput,
-  TAccountRegistro extends InstructionAccountInput = InstructionAccountInput,
+export type InicializarPromotoraInput<
+  TAccountPromotora extends InstructionAccountInput = InstructionAccountInput,
+  TAccountPropietario extends InstructionSignerInput = InstructionSignerInput,
   TAccountSystemProgram extends InstructionAccountInput =
     InstructionAccountInput,
 > = {
-  owner: TAccountOwner;
-  registro: TAccountRegistro;
+  promotora: TAccountPromotora;
+  propietario: TAccountPropietario;
   systemProgram?: TAccountSystemProgram;
-  nombreNegocio: CrearRegistroInstructionDataArgs["nombreNegocio"];
 };
 
-export function getCrearRegistroInstruction<
-  TAccountOwner extends InstructionSignerInput,
-  TAccountRegistro extends InstructionAccountInput,
+export function getInicializarPromotoraInstruction<
+  TAccountPromotora extends InstructionAccountInput,
+  TAccountPropietario extends InstructionSignerInput,
   TAccountSystemProgram extends InstructionAccountInput,
-  TProgramAddress extends Address = typeof REGISTRO_PROGRAM_ADDRESS,
+  TProgramAddress extends Address = typeof TORNEOS_BOX_PROGRAM_ADDRESS,
 >(
-  input: CrearRegistroInput<
-    TAccountOwner,
-    TAccountRegistro,
+  input: InicializarPromotoraInput<
+    TAccountPromotora,
+    TAccountPropietario,
     TAccountSystemProgram
   >,
   config?: {
     programAddress?: TProgramAddress | { readonly address: TProgramAddress };
   },
-): CrearRegistroInstruction<
+): InicializarPromotoraInstruction<
   TProgramAddress,
   ResolvedInstructionAccountMeta<
-    TAccountOwner,
-    InstructionAccountInputAddress<TAccountOwner>
+    TAccountPromotora,
+    InstructionAccountInputAddress<TAccountPromotora>
   >,
   ResolvedInstructionAccountMeta<
-    TAccountRegistro,
-    InstructionAccountInputAddress<TAccountRegistro>
+    TAccountPropietario,
+    InstructionAccountInputAddress<TAccountPropietario>
   >,
   ResolvedInstructionAccountMeta<
     TAccountSystemProgram,
@@ -162,7 +149,7 @@ export function getCrearRegistroInstruction<
 > {
   // Program address.
   const programAddressInput =
-    config?.programAddress ?? REGISTRO_PROGRAM_ADDRESS;
+    config?.programAddress ?? TORNEOS_BOX_PROGRAM_ADDRESS;
   const programAddress =
     typeof programAddressInput === "string"
       ? programAddressInput
@@ -173,10 +160,14 @@ export function getCrearRegistroInstruction<
 
   // Original accounts.
   const originalAccounts = {
-    owner: { value: input.owner ?? null, isSigner: true, isWritable: true },
-    registro: {
-      value: input.registro ?? null,
+    promotora: {
+      value: input.promotora ?? null,
       isSigner: false,
+      isWritable: true,
+    },
+    propietario: {
+      value: input.propietario ?? null,
+      isSigner: true,
       isWritable: true,
     },
     systemProgram: {
@@ -190,9 +181,6 @@ export function getCrearRegistroInstruction<
     ResolvedInstructionAccount
   >;
 
-  // Original args.
-  const args = { ...input };
-
   // Resolve default values.
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
@@ -201,23 +189,21 @@ export function getCrearRegistroInstruction<
 
   return Object.freeze({
     accounts: [
-      getAccountMeta("owner", accounts.owner),
-      getAccountMeta("registro", accounts.registro),
+      getAccountMeta("promotora", accounts.promotora),
+      getAccountMeta("propietario", accounts.propietario),
       getAccountMeta("systemProgram", accounts.systemProgram),
     ],
-    data: getCrearRegistroInstructionDataEncoder().encode(
-      args as CrearRegistroInstructionDataArgs,
-    ),
+    data: getInicializarPromotoraInstructionDataEncoder().encode({}),
     programAddress,
-  } as CrearRegistroInstruction<
+  } as InicializarPromotoraInstruction<
     TProgramAddress,
     ResolvedInstructionAccountMeta<
-      TAccountOwner,
-      InstructionAccountInputAddress<TAccountOwner>
+      TAccountPromotora,
+      InstructionAccountInputAddress<TAccountPromotora>
     >,
     ResolvedInstructionAccountMeta<
-      TAccountRegistro,
-      InstructionAccountInputAddress<TAccountRegistro>
+      TAccountPropietario,
+      InstructionAccountInputAddress<TAccountPropietario>
     >,
     ResolvedInstructionAccountMeta<
       TAccountSystemProgram,
@@ -226,27 +212,27 @@ export function getCrearRegistroInstruction<
   >);
 }
 
-export type ParsedCrearRegistroInstruction<
-  TProgram extends string = typeof REGISTRO_PROGRAM_ADDRESS,
+export type ParsedInicializarPromotoraInstruction<
+  TProgram extends string = typeof TORNEOS_BOX_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    owner: TAccountMetas[0];
-    registro: TAccountMetas[1];
+    promotora: TAccountMetas[0];
+    propietario: TAccountMetas[1];
     systemProgram: TAccountMetas[2];
   };
-  data: CrearRegistroInstructionData;
+  data: InicializarPromotoraInstructionData;
 };
 
-export function parseCrearRegistroInstruction<
+export function parseInicializarPromotoraInstruction<
   TProgram extends string,
   TAccountMetas extends readonly AccountMeta[],
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
-): ParsedCrearRegistroInstruction<TProgram, TAccountMetas> {
+): ParsedInicializarPromotoraInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 3) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
@@ -265,10 +251,12 @@ export function parseCrearRegistroInstruction<
   return {
     programAddress: instruction.programAddress,
     accounts: {
-      owner: getNextAccount(),
-      registro: getNextAccount(),
+      promotora: getNextAccount(),
+      propietario: getNextAccount(),
       systemProgram: getNextAccount(),
     },
-    data: getCrearRegistroInstructionDataDecoder().decode(instruction.data),
+    data: getInicializarPromotoraInstructionDataDecoder().decode(
+      instruction.data,
+    ),
   };
 }

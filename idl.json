@@ -1,22 +1,19 @@
 {
   "version": "0.1.0",
-  "name": "registro",
-  "metadata": {
-    "address": "38oTMyvUTmqkBQeMiuok5F2mPjp9dVadWdBeQTDNmTUY"
-  },
+  "name": "torneos_box",
   "instructions": [
     {
-      "name": "crearRegistro",
+      "name": "inicializarPromotora",
       "accounts": [
         {
-          "name": "owner",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "registro",
+          "name": "promotora",
           "isMut": true,
           "isSigner": false
+        },
+        {
+          "name": "propietario",
+          "isMut": true,
+          "isSigner": true
         },
         {
           "name": "systemProgram",
@@ -24,30 +21,25 @@
           "isSigner": false
         }
       ],
-      "args": [
-        {
-          "name": "nombreNegocio",
-          "type": "string"
-        }
-      ]
+      "args": []
     },
     {
-      "name": "crearCliente",
+      "name": "registrarBoxeador",
       "accounts": [
         {
-          "name": "owner",
+          "name": "promotora",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "boxeador",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "propietario",
           "isMut": true,
           "isSigner": true
-        },
-        {
-          "name": "registro",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "cliente",
-          "isMut": true,
-          "isSigner": false
         },
         {
           "name": "systemProgram",
@@ -59,31 +51,57 @@
         {
           "name": "nombre",
           "type": "string"
+        },
+        {
+          "name": "peso",
+          "type": "u64"
+        },
+        {
+          "name": "categoria",
+          "type": {
+            "defined": "Categoria"
+          }
         }
       ]
     },
     {
-      "name": "registrarVenta",
+      "name": "eliminarBoxeador",
       "accounts": [
         {
-          "name": "owner",
+          "name": "promotora",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "boxeador",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "propietario",
           "isMut": true,
           "isSigner": true
-        },
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "crearTorneo",
+      "accounts": [
         {
-          "name": "registro",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "cliente",
+          "name": "promotora",
           "isMut": true,
           "isSigner": false
         },
         {
-          "name": "venta",
+          "name": "torneo",
           "isMut": true,
           "isSigner": false
+        },
+        {
+          "name": "propietario",
+          "isMut": true,
+          "isSigner": true
         },
         {
           "name": "systemProgram",
@@ -93,167 +111,293 @@
       ],
       "args": [
         {
-          "name": "idCliente",
-          "type": "u16"
-        },
-        {
-          "name": "sku",
+          "name": "nombre",
           "type": "string"
         },
         {
-          "name": "descripcion",
+          "name": "sede",
           "type": "string"
         },
         {
-          "name": "monto",
-          "type": "u32"
+          "name": "categoria",
+          "type": {
+            "defined": "Categoria"
+          }
         }
       ]
     },
     {
-      "name": "hacerDevolucion",
+      "name": "registrarPelea",
       "accounts": [
         {
-          "name": "owner",
+          "name": "promotora",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "pelea",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "torneo",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "boxeadorRojo",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "boxeadorAzul",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "propietario",
           "isMut": true,
           "isSigner": true
         },
         {
-          "name": "registro",
+          "name": "systemProgram",
           "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "cliente",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "venta",
-          "isMut": true,
           "isSigner": false
         }
       ],
-      "args": [
-        {
-          "name": "idCliente",
-          "type": "u16"
-        },
-        {
-          "name": "sku",
-          "type": "string"
-        }
-      ]
+      "args": []
     },
     {
-      "name": "cambiarMonto",
+      "name": "eliminarPelea",
       "accounts": [
         {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "registro",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "cliente",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "venta",
+          "name": "promotora",
           "isMut": true,
           "isSigner": false
+        },
+        {
+          "name": "pelea",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "boxeadorRojo",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "boxeadorAzul",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "propietario",
+          "isMut": true,
+          "isSigner": true
         }
       ],
-      "args": [
-        {
-          "name": "idCliente",
-          "type": "u16"
-        },
-        {
-          "name": "sku",
-          "type": "string"
-        },
-        {
-          "name": "nuevoMonto",
-          "type": "u32"
-        }
-      ]
+      "args": []
     }
   ],
   "accounts": [
     {
-      "name": "Registro",
+      "name": "Promotora",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "owner",
+            "name": "propietario",
             "type": "publicKey"
           },
           {
-            "name": "nombreNegocio",
-            "type": "string"
+            "name": "boxeadorCounter",
+            "type": "u32"
           },
           {
-            "name": "clientes",
-            "type": {
-              "vec": "publicKey"
-            }
+            "name": "torneoCounter",
+            "type": "u32"
           },
           {
-            "name": "idCounter",
-            "type": "u16"
+            "name": "peleaCounter",
+            "type": "u32"
           }
         ]
       }
     },
     {
-      "name": "Cliente",
+      "name": "Boxeador",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "idCliente",
-            "type": "u16"
+            "name": "idBoxeador",
+            "type": "u32"
+          },
+          {
+            "name": "promotora",
+            "type": "publicKey"
           },
           {
             "name": "nombre",
             "type": "string"
           },
           {
-            "name": "compras",
-            "type": "u16"
+            "name": "peso",
+            "type": "u64"
           },
           {
-            "name": "historial",
+            "name": "categoria",
             "type": {
-              "vec": "publicKey"
+              "defined": "Categoria"
             }
+          },
+          {
+            "name": "victorias",
+            "type": "u32"
+          },
+          {
+            "name": "derrotas",
+            "type": "u32"
+          },
+          {
+            "name": "empates",
+            "type": "u32"
+          },
+          {
+            "name": "activo",
+            "type": "bool"
+          },
+          {
+            "name": "peleasRegistradas",
+            "type": "u32"
           }
         ]
       }
     },
     {
-      "name": "Venta",
+      "name": "Torneo",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "sku",
-            "type": "string"
-          },
-          {
-            "name": "descripcion",
-            "type": "string"
-          },
-          {
-            "name": "monto",
+            "name": "idTorneo",
             "type": "u32"
+          },
+          {
+            "name": "promotora",
+            "type": "publicKey"
+          },
+          {
+            "name": "nombre",
+            "type": "string"
+          },
+          {
+            "name": "sede",
+            "type": "string"
+          },
+          {
+            "name": "categoria",
+            "type": {
+              "defined": "Categoria"
+            }
+          },
+          {
+            "name": "activo",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Pelea",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "idPelea",
+            "type": "u32"
+          },
+          {
+            "name": "promotora",
+            "type": "publicKey"
+          },
+          {
+            "name": "boxeadorRojo",
+            "type": "publicKey"
+          },
+          {
+            "name": "boxeadorAzul",
+            "type": "publicKey"
+          },
+          {
+            "name": "torneo",
+            "type": "publicKey"
+          },
+          {
+            "name": "resultado",
+            "type": {
+              "defined": "Resultado"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "Categoria",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Minimosca"
+          },
+          {
+            "name": "Mosca"
+          },
+          {
+            "name": "Gallo"
+          },
+          {
+            "name": "Pluma"
+          },
+          {
+            "name": "Ligero"
+          },
+          {
+            "name": "Superligero"
+          },
+          {
+            "name": "Welter"
+          },
+          {
+            "name": "Superwelter"
+          },
+          {
+            "name": "Mediano"
+          },
+          {
+            "name": "Pesado"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Resultado",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Pendiente"
+          },
+          {
+            "name": "RojoGana"
+          },
+          {
+            "name": "AzulGana"
+          },
+          {
+            "name": "Empate"
           }
         ]
       }
@@ -262,13 +406,34 @@
   "errors": [
     {
       "code": 6000,
-      "name": "NoOwner",
-      "msg": "Error, no eres el owner del registro"
+      "name": "NombreVacio",
+      "msg": "El nombre no puede estar vacío."
     },
     {
       "code": 6001,
-      "name": "NoSKU",
-      "msg": "Error, la venta no esta en el historial del cliente"
+      "name": "NombreMuyLargo",
+      "msg": "El nombre excede los 50 caracteres."
+    },
+    {
+      "code": 6002,
+      "name": "PesoInvalido",
+      "msg": "El peso debe ser mayor a cero."
+    },
+    {
+      "code": 6003,
+      "name": "TorneoYaFinalizado",
+      "msg": "El torneo ya fue finalizado."
+    },
+    {
+      "code": 6004,
+      "name": "BoxeadorInactivo",
+      "msg": "El boxeador está inactivo."
+    },
+    {
+      "code": 6005,
+      "name": "BoxeadorConPeleas",
+ "msg": "No se puede eliminar el boxeador porque tiene peleas registradas."
     }
-  ]
+  ],
+  "address": "Hp1EuNXPu3fGuZa94uTri6TJLD9KdHbH69MXAQDdxvw1"
 }

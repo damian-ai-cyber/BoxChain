@@ -1,334 +1,282 @@
 use anchor_lang::prelude::*;
 
-declare_id!("");
+declare_id!("Hp1EuNXPu3fGuZa94uTri6TJLD9KdHbH69MXAQDdxvw1");
 
 #[program]
-pub mod registro {
-    use super::*; // Importa todos los structs y enums definidos fuera del modulo
+pub mod torneos_box {
+    use super::*;
 
-    /////////////////////////// INSTRUCCIONES ///////////////////////////
-    /////////////////////////// Crear Registro ///////////////////////////
-    pub fn crear_registro(context: Context<NuevoRegistro>, nombre_negocio: String) -> Result<()> {
-        context.accounts.registro.set_inner(Registro {
-            owner: context.accounts.owner.key(),    // caller wallet
-            nombre_negocio: nombre_negocio.clone(), // .clone() porque el String se reusa en el msg!
-            clientes: Vec::new(), // El negocio nace sin clientes. Guardara PDAs, no structs
-            id_counter: 0,        // Contador incremental, asigna un id unico a cada cliente
-        }); // Crea el struct del registro, lo serializa y lo guarda en el espacio de la cuenta
-
-        msg!("Registro: {} creado exitosamente!", nombre_negocio); // Log de verificacion
-
+    // ── PROMOTORA (Cuenta central para contadores de PDAs) ───────────
+    pub fn inicializar_promotora(ctx: Context<InicializarPromotora>) -> Result<()> {
+        let promotora = &mut ctx.accounts.promotora;
+        promotora.propietario = ctx.accounts.propietario.key();
+        promotora.boxeador_counter = 0;
+        promotora.torneo_counter = 0;
+        promotora.pelea_counter = 0;
         Ok(())
     }
 
-    /////////////////////////// Nuevo Cliente ///////////////////////////
-    // "init" no puede ser condicional: Anchor crea las cuentas antes de entrar al handler.
-    // Por eso el alta del cliente es su propia instruccion, separada de registrar_venta.
-    pub fn crear_cliente(context: Context<NuevoCliente>, nombre: String) -> Result<()> {
-        let cliente_key = context.accounts.cliente.key(); // Se lee ANTES del &mut para no solapar prestamos
-
-        let registro = &mut context.accounts.registro;
-
-        // El id no es un argumento: lo asigna el programa. El contexto ya derivo la cuenta a
-        // partir de este mismo valor, asi que aqui solo se confirma en el estado.
-        let id_cliente = registro.id_counter + 1;
-        registro.id_counter = id_cliente;
-        registro.clientes.push(cliente_key); // El registro guarda la PDA del cliente, no sus datos
-
-        context.accounts.cliente.set_inner(Cliente {
-            id_cliente,
-            nombre: nombre.clone(), // .clone() para no ceder la propiedad porque el String se reusa en el msg!
-            compras: 0,             // Nace sin compras: registrar_venta es quien incrementa
-            historial: Vec::new(),
-        });
-
-        msg!("Cliente {} creado con id: {}", nombre, id_cliente); // Log de verificacion
-
-        Ok(())
-    }
-
-    /////////////////////////// Registrar Venta ///////////////////////////
-    // id_cliente y sku no se usan en el cuerpo: viajan al contexto para derivar y validar
-    // las cuentas. Ver NuevaVenta.
-    pub fn registrar_venta(
-        context: Context<NuevaVenta>,
-        _id_cliente: u16,
-        sku: String,
-        descripcion: String,
-        monto: u32,
+    // ── BOXEADOR ────────────────────────────────────────────────────────────
+    pub fn registrar_boxeador(
+        ctx: Context<RegistrarBoxeador>,
+        nombre: String,
+        peso: u64,
+        categoria: Categoria,
     ) -> Result<()> {
-        context.accounts.venta.set_inner(Venta {
-            sku,
-            descripcion,
-            monto,
-        }); // Serializa y guarda el struct en la cuenta de la venta
+        require!(!nombre.is_empty(), Errores::NombreVacio);
+        require!(nombre.len() <= 50, Errores::NombreMuyLargo);
+        require!(peso > 0, Errores::PesoInvalido);
 
-        let venta_key = context.accounts.venta.key(); // Se lee ANTES del &mut de cliente
+        let boxeador = &mut ctx.accounts.boxeador;
+        let promotora = &mut ctx.accounts.promotora;
 
-        let cliente = &mut context.accounts.cliente;
-
-        cliente.historial.push(venta_key); // El historial guarda PDAs, no structs completos
-        cliente.compras += 1;
-
-        msg!(
-            "Venta registrada para el cliente con id: {}",
-            cliente.id_cliente
-        ); // Log de verificacion
-
+        boxeador.id_boxeador = promotora.boxeador_counter;
+        boxeador.promotora = promotora.key();
+        boxeador.nombre = nombre;
+        boxeador.peso = peso;
+        boxeador.categoria = categoria;
+        boxeador.victorias = 0;
+        boxeador.derrotas = 0;
+        boxeador.empates = 0;
+        boxeador.activo = true;
+        boxeador.peleas_registradas = 0; 
+        
+        promotora.boxeador_counter += 1; 
         Ok(())
     }
 
-    /////////////////////////// Hacer Devolucion ///////////////////////////
-    // El contexto EliminarVenta lleva "close = owner": la cuenta de la venta se cierra al final
-    // y su rent vuelve al owner.
-    pub fn hacer_devolucion(
-        context: Context<EliminarVenta>,
-        _id_cliente: u16,
-        sku: String,
-    ) -> Result<()> {
-        let venta_key = context.accounts.venta.key(); // Se lee ANTES del &mut de cliente
-
-        let cliente = &mut context.accounts.cliente;
-
-        require!(cliente.historial.contains(&venta_key), Errores::NoSKU);
-        // La venta existe y pertenece a este cliente (lo garantizan las seeds), pero el historial
-        // es el indice de lectura: si la referencia no esta, restar compras lo desincronizaria.
-
-        cliente.historial.retain(|&k| k != venta_key); // Quita la referencia del historial
-        cliente.compras -= 1;
-
-        msg!(
-            "Venta con sku: {}, devuelta por el cliente con id: {}",
-            sku,
-            cliente.id_cliente
-        );
-
+    pub fn eliminar_boxeador(ctx: Context<EliminarBoxeador>) -> Result<()> {
+        let boxeador = &ctx.accounts.boxeador;
+        // REGLA DE NEGOCIO: No se puede eliminar si tiene peleas
+        require!(boxeador.peleas_registradas == 0, Errores::BoxeadorConPeleas);
         Ok(())
     }
 
-    /////////////////////////// Cambiar Monto ///////////////////////////
-    // La cuenta de la venta llega ya validada por el contexto: no hay que recorrer ningun vector
-    // ni reconstruir la cadena a mano.
-    pub fn cambiar_monto(
-        context: Context<ModificarVenta>,
-        _id_cliente: u16,
-        sku: String,
-        nuevo_monto: u32,
+    // ── TORNEO ──────────────────────────────────────────────────────────────
+    pub fn crear_torneo(
+        ctx: Context<CrearTorneo>,
+        nombre: String,
+        sede: String,
+        categoria: Categoria,
     ) -> Result<()> {
-        let venta = &mut context.accounts.venta;
-        let viejo_monto = venta.monto;
-        venta.monto = nuevo_monto;
+        require!(!nombre.is_empty(), Errores::NombreVacio);
+        
+        let torneo = &mut ctx.accounts.torneo;
+        let promotora = &mut ctx.accounts.promotora;
 
-        msg!(
-            "El monto de la venta con sku: {}, paso de: {}, a: {}",
-            sku,
-            viejo_monto,
-            nuevo_monto
-        );
+        torneo.id_torneo = promotora.torneo_counter;
+        torneo.promotora = promotora.key();
+        torneo.nombre = nombre;
+        torneo.sede = sede;
+        torneo.categoria = categoria;
+        torneo.activo = true;
 
+        promotora.torneo_counter += 1;
+        Ok(())
+    }
+
+    // ── PELEA ───────────────────────────────────────────────────────────────
+    pub fn registrar_pelea(
+        ctx: Context<RegistrarPelea>,
+    ) -> Result<()> {
+        require!(ctx.accounts.torneo.activo, Errores::TorneoYaFinalizado);
+        require!(ctx.accounts.boxeador_rojo.activo, Errores::BoxeadorInactivo);
+        require!(ctx.accounts.boxeador_azul.activo, Errores::BoxeadorInactivo);
+
+        let pelea = &mut ctx.accounts.pelea;
+        let promotora = &mut ctx.accounts.promotora;
+
+        pelea.id_pelea = promotora.pelea_counter;
+        pelea.promotora = promotora.key();
+        pelea.boxeador_rojo = ctx.accounts.boxeador_rojo.key();
+        pelea.boxeador_azul = ctx.accounts.boxeador_azul.key();
+        pelea.torneo = ctx.accounts.torneo.key();
+        pelea.resultado = Resultado::Pendiente;
+
+        // Sumamos las peleas a los boxeadores
+        ctx.accounts.boxeador_rojo.peleas_registradas += 1;
+        ctx.accounts.boxeador_azul.peleas_registradas += 1;
+
+        promotora.pelea_counter += 1;
+        Ok(())
+    }
+
+    pub fn eliminar_pelea(ctx: Context<EliminarPelea>) -> Result<()> {
+        // Restamos las peleas al eliminar
+        ctx.accounts.boxeador_rojo.peleas_registradas = ctx.accounts.boxeador_rojo.peleas_registradas.saturating_sub(1);
+        ctx.accounts.boxeador_azul.peleas_registradas = ctx.accounts.boxeador_azul.peleas_registradas.saturating_sub(1);
         Ok(())
     }
 }
 
-/////////////////////////// Codigos de Error ///////////////////////////
-#[error_code]
-pub enum Errores {
-    #[msg("Error, no eres el owner del registro")]
-    NoOwner,
-    #[msg("Error, la venta no esta en el historial del cliente")]
-    NoSKU,
-}
+// ── ENUMS Y STRUCTS ──────────────────────────────────────────────────────────
 
-/////////////////////////// CUENTAS ///////////////////////////
-/////////////////////////// Registro ///////////////////////////
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, InitSpace)]
+pub enum Categoria { Minimosca, Mosca, Gallo, Pluma, Ligero, Superligero, Welter, Superwelter, Mediano, Pesado }
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, InitSpace)]
+pub enum Resultado { Pendiente, RojoGana, AzulGana, Empate }
 
 #[account]
 #[derive(InitSpace)]
-pub struct Registro {
-    pub owner: Pubkey, // pub: has_one = owner necesita leer este campo desde el contexto
-
-    #[max_len(30)]
-    nombre_negocio: String,
-
-    #[max_len(10)] // Guarda PDAs (32 bytes c/u), no structs completos
-    clientes: Vec<Pubkey>,
-
-    id_counter: u16,
+pub struct Promotora {
+    pub propietario: Pubkey,
+    pub boxeador_counter: u32,
+    pub torneo_counter: u32,
+    pub pelea_counter: u32,
 }
 
-/////////////////////////// Cliente ///////////////////////////
-
 #[account]
-#[derive(InitSpace, PartialEq)]
-pub struct Cliente {
-    id_cliente: u16,
-
-    #[max_len(30)]
-    nombre: String,
-
-    compras: u16,
-
-    #[max_len(10)]
-    historial: Vec<Pubkey>,
-}
-
-/////////////////////////// Venta ///////////////////////////
-
-#[account]
-#[derive(InitSpace, PartialEq)]
-pub struct Venta {
-    #[max_len(5)]
-    sku: String,
-
+#[derive(InitSpace)]
+pub struct Boxeador {
+    pub id_boxeador: u32,
+    pub promotora: Pubkey,
     #[max_len(50)]
-    descripcion: String,
-
-    monto: u32,
+    pub nombre: String,
+    pub peso: u64,
+    pub categoria: Categoria,
+    pub victorias: u32,
+    pub derrotas: u32,
+    pub empates: u32,
+    pub activo: bool,
+    pub peleas_registradas: u32, 
 }
 
-/////////////////////////// CONTEXTOS ///////////////////////////
-/*
-La jerarquia del modelo vive en las seeds:
+#[account]
+#[derive(InitSpace)]
+pub struct Torneo {
+    pub id_torneo: u32,
+    pub promotora: Pubkey,
+    #[max_len(50)]
+    pub nombre: String,
+    #[max_len(50)]
+    pub sede: String,
+    pub categoria: Categoria,
+    pub activo: bool,
+}
 
-    registro  <- [b"registro", nombre_negocio, owner]
-    cliente   <- [b"cliente",  registro, id_cliente]
-    venta     <- [b"venta",    cliente,  sku]
+#[account]
+#[derive(InitSpace)]
+pub struct Pelea {
+    pub id_pelea: u32,
+    pub promotora: Pubkey,
+    pub boxeador_rojo: Pubkey,
+    pub boxeador_azul: Pubkey,
+    pub torneo: Pubkey,
+    pub resultado: Resultado,
+}
 
-Cada cuenta se deriva de su padre, asi que la pertenencia queda garantizada por construccion:
-si la direccion coincide, el cliente ES de ese registro. Por eso ya no hace falta recorrer
-el vector para validar; los vectores quedan como indice de lectura para el frontend.
-
-El "has_one = owner" cierra la cadena por arriba: comprueba que registro.owner == owner.key(),
-es decir, que quien firma es el dueño del registro desde el que se deriva todo lo demas.
-*/
-
-/////////////////////////// Nuevo Registro ///////////////////////////
-/// Instruccion: crear_registro
+// ── CONTEXTOS CON PDAs ───────────────────────────────────────────────────────
 
 #[derive(Accounts)]
-#[instruction(nombre_negocio: String)]
-pub struct NuevoRegistro<'info> {
-    #[account(mut)]
-    pub owner: Signer<'info>,
-
+pub struct InicializarPromotora<'info> {
     #[account(
         init,
-        payer = owner,
-        space = Registro::INIT_SPACE + 8,
-        seeds = [b"registro", nombre_negocio.as_bytes(), owner.key().as_ref()],
+        payer = propietario,
+        space = 8 + Promotora::INIT_SPACE,
+        seeds = [b"promotora", propietario.key().as_ref()],
         bump
     )]
-    pub registro: Account<'info, Registro>,
-
+    pub promotora: Account<'info, Promotora>,
+    #[account(mut)]
+    pub propietario: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
-/////////////////////////// Nuevo Cliente ///////////////////////////
-/// Instruccion: crear_cliente
-
 #[derive(Accounts)]
-pub struct NuevoCliente<'info> {
-    #[account(mut)]
-    pub owner: Signer<'info>,
-
-    #[account(mut, has_one = owner @ Errores::NoOwner)]
-    pub registro: Account<'info, Registro>,
-
+pub struct RegistrarBoxeador<'info> {
+    #[account(mut, has_one = propietario)]
+    pub promotora: Account<'info, Promotora>,
     #[account(
         init,
-        payer = owner,
-        space = Cliente::INIT_SPACE + 8,
-        // El id sale del contador del propio registro: el programa lo asigna, nadie lo envia.
-        // to_le_bytes() porque un u16 no tiene as_bytes(): ese metodo es de String/str
-        seeds = [b"cliente", registro.key().as_ref(), (registro.id_counter + 1).to_le_bytes().as_ref()],
+        payer = propietario,
+        space = 8 + Boxeador::INIT_SPACE,
+        seeds = [b"boxeador", promotora.key().as_ref(), &promotora.boxeador_counter.to_le_bytes()],
         bump
     )]
-    pub cliente: Account<'info, Cliente>,
-
+    pub boxeador: Account<'info, Boxeador>,
+    #[account(mut)]
+    pub propietario: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
-/////////////////////////// Nueva Venta ///////////////////////////
-/// Instruccion: registrar_venta
+#[derive(Accounts)]
+pub struct EliminarBoxeador<'info> {
+    #[account(mut, has_one = propietario)]
+    pub promotora: Account<'info, Promotora>,
+    #[account(mut, has_one = promotora, close = propietario)]
+    pub boxeador: Account<'info, Boxeador>,
+    #[account(mut)]
+    pub propietario: Signer<'info>,
+}
 
 #[derive(Accounts)]
-#[instruction(id_cliente: u16, sku: String)]
-pub struct NuevaVenta<'info> {
-    #[account(mut)]
-    pub owner: Signer<'info>,
-
-    #[account(has_one = owner @ Errores::NoOwner)]
-    pub registro: Account<'info, Registro>, // Sin mut: solo se lee para derivar al cliente
-
-    #[account(
-        mut,
-        seeds = [b"cliente", registro.key().as_ref(), id_cliente.to_le_bytes().as_ref()],
-        bump
-    )]
-    pub cliente: Account<'info, Cliente>,
-
+pub struct CrearTorneo<'info> {
+    #[account(mut, has_one = propietario)]
+    pub promotora: Account<'info, Promotora>,
     #[account(
         init,
-        payer = owner,
-        space = Venta::INIT_SPACE + 8,
-        // El SKU entra en los seeds: un cliente no puede repetir el mismo producto
-        seeds = [b"venta", cliente.key().as_ref(), sku.as_bytes()],
+        payer = propietario,
+        space = 8 + Torneo::INIT_SPACE,
+        seeds = [b"torneo", promotora.key().as_ref(), &promotora.torneo_counter.to_le_bytes()],
         bump
     )]
-    pub venta: Account<'info, Venta>,
-
+    pub torneo: Account<'info, Torneo>,
+    #[account(mut)]
+    pub propietario: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
-/////////////////////////// Modificar Venta ///////////////////////////
-/// Instruccion: cambiar_monto
-
 #[derive(Accounts)]
-#[instruction(id_cliente: u16, sku: String)]
-pub struct ModificarVenta<'info> {
-    pub owner: Signer<'info>,
-
-    #[account(has_one = owner @ Errores::NoOwner)]
-    pub registro: Account<'info, Registro>,
-
+pub struct RegistrarPelea<'info> {
+    #[account(mut, has_one = propietario)]
+    pub promotora: Account<'info, Promotora>,
     #[account(
-        seeds = [b"cliente", registro.key().as_ref(), id_cliente.to_le_bytes().as_ref()],
+        init,
+        payer = propietario,
+        space = 8 + Pelea::INIT_SPACE,
+        seeds = [b"pelea", promotora.key().as_ref(), &promotora.pelea_counter.to_le_bytes()],
         bump
     )]
-    pub cliente: Account<'info, Cliente>, // Sin mut: solo se lee, para derivar la venta
-
-    #[account(
-        mut,
-        seeds = [b"venta", cliente.key().as_ref(), sku.as_bytes()],
-        bump
-    )]
-    pub venta: Account<'info, Venta>,
+    pub pelea: Account<'info, Pelea>,
+    #[account(mut, has_one = promotora)]
+    pub torneo: Account<'info, Torneo>,
+    #[account(mut, has_one = promotora)]
+    pub boxeador_rojo: Account<'info, Boxeador>,
+    #[account(mut, has_one = promotora)]
+    pub boxeador_azul: Account<'info, Boxeador>,
+    #[account(mut)]
+    pub propietario: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
 
-/////////////////////////// Eliminar Venta ///////////////////////////
-/// Instruccion: hacer_devolucion -> cierra la cuenta
-
 #[derive(Accounts)]
-#[instruction(id_cliente: u16, sku: String)]
-pub struct EliminarVenta<'info> {
+pub struct EliminarPelea<'info> {
+    #[account(mut, has_one = propietario)]
+    pub promotora: Account<'info, Promotora>,
+    #[account(mut, has_one = promotora, close = propietario)]
+    pub pelea: Account<'info, Pelea>,
+    #[account(mut, has_one = promotora)]
+    pub boxeador_rojo: Account<'info, Boxeador>,
+    #[account(mut, has_one = promotora)]
+    pub boxeador_azul: Account<'info, Boxeador>,
     #[account(mut)]
-    pub owner: Signer<'info>, // mut: recibe el rent de la cuenta cerrada
+    pub propietario: Signer<'info>,
+}
 
-    #[account(has_one = owner @ Errores::NoOwner)]
-    pub registro: Account<'info, Registro>, // Sin mut: el registro no cambia en una devolucion
-
-    #[account(
-        mut,
-        seeds = [b"cliente", registro.key().as_ref(), id_cliente.to_le_bytes().as_ref()],
-        bump
-    )]
-    pub cliente: Account<'info, Cliente>,
-
-    #[account(
-        mut,
-        close = owner,
-        seeds = [b"venta", cliente.key().as_ref(), sku.as_bytes()],
-        bump
-    )]
-    pub venta: Account<'info, Venta>,
+// ── ERRORES ──────────────────────────────────────────────────────────────────
+#[error_code]
+pub enum Errores {
+    #[msg("El nombre no puede estar vacío.")]
+    NombreVacio,
+    #[msg("El nombre excede los 50 caracteres.")]
+    NombreMuyLargo,
+    #[msg("El peso debe ser mayor a cero.")]
+    PesoInvalido,
+    #[msg("El torneo ya fue finalizado.")]
+    TorneoYaFinalizado,
+    #[msg("El boxeador está inactivo.")]
+    BoxeadorInactivo,
+    #[msg("No se puede eliminar el boxeador porque tiene peleas registradas.")]
+    BoxeadorConPeleas,
 }

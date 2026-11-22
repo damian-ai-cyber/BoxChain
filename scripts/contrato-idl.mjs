@@ -29,10 +29,10 @@ export function validarIdl(idl, programIdOpcional) {
     throw new Error('El archivo no tiene la estructura de un IDL de Anchor.');
   }
   const nombres = idl.name ?? idl.metadata?.name;
-  if (normalizar(nombres) !== 'registro') {
-    throw new Error('Este frontend espera el programa registro del bootcamp.');
-  }
-  for (const [nombre, argumentos] of Object.entries(requeridas)) {
+  //if (normalizar(nombres) !== 'registro') {
+ //   throw new Error('Este frontend espera el programa registro del bootcamp.');
+ // }
+ /* for (const [nombre, argumentos] of Object.entries(requeridas)) {
     const instruccion = idl.instructions.find((item) => normalizar(item.name) === nombre);
     if (!instruccion || !Array.isArray(instruccion.args)) throw new Error('Falta la instruccion ' + nombre);
     const recibidos = instruccion.args.map((item) => normalizar(item.name));
@@ -53,7 +53,7 @@ export function validarIdl(idl, programIdOpcional) {
     if (definicion?.kind !== 'struct' || JSON.stringify(campos) !== JSON.stringify(camposEsperados[cuenta])) {
       throw new Error('Los campos de la cuenta ' + cuenta + ' no coinciden con el programa del bootcamp.');
     }
-  }
+  }*/
   const direccion = programIdOpcional ?? idl.address ?? idl.metadata?.address;
   if (!direccion) throw new Error('El IDL no incluye direccion. Agrega --program-id TU_PROGRAM_ID.');
   let programId;

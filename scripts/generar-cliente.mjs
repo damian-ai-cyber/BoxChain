@@ -22,7 +22,16 @@ try {
   const paqueteRuta = resolve(root, 'node_modules/codama/package.json');
   const paquete = JSON.parse(await readFile(paqueteRuta, 'utf8'));
   const bin = typeof paquete.bin === 'string' ? paquete.bin : paquete.bin.codama;
-  const resultado = spawnSync(process.execPath, [resolve(dirname(paqueteRuta), bin), 'run', 'js'], { cwd: root, stdio: 'inherit' });
+const codigo = `
+  import { createFromRoot } from 'codama';
+  import { rootNodeFromAnchor } from '@codama/nodes-from-anchor';
+  import { renderVisitor } from '@codama/renderers-js';
+  import { readFileSync } from 'node:fs';
+  const idl = JSON.parse(readFileSync('.aula/idl-codama.json', 'utf8'));
+  const codama = createFromRoot(rootNodeFromAnchor(idl));
+  await codama.accept(renderVisitor('clients/js'));
+`;
+const resultado = spawnSync(process.execPath, ['--input-type=module', '-e', codigo], { cwd: root, stdio: 'inherit' });
   if (resultado.status !== 0) throw new Error('Codama no pudo generar el cliente. Revisa la salida anterior.');
   // El cliente vive dentro de este proyecto ESM y se consume como TypeScript.
   // Codama crea otro package.json: fijamos su modo para Vite y Node/tsx.

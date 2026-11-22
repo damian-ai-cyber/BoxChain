@@ -1,14 +1,19 @@
 import { address, createNoopSigner, type Address } from '@solana/kit';
 import type { Connection } from '@solana/web3.js';
 import {
-  getCrearRegistroInstruction, getCrearClienteInstruction,
-  getRegistrarVentaInstruction, getCambiarMontoInstruction, getHacerDevolucionInstruction,
+  Categoria,
+  fetchMaybePromotora,
+  getInicializarPromotoraInstruction,
+  getRegistrarBoxeadorInstruction,
+  getEliminarBoxeadorInstruction,
+  getCrearTorneoInstruction,
+  getRegistrarPeleaInstruction,
+  getEliminarPeleaInstruction,
 } from '../../clients/js/src/generated';
-import { cadena, pdaCliente, pdaRegistro } from './pdas';
-import { siguienteId } from './lecturas';
+import { rpc } from './conexion';
+import { pdaPromotora, pdaBoxeador, pdaTorneo, pdaPelea } from './pdas';
 import { enviar, type WalletFirma, type OpcionesEnvio } from './tx';
 import { comprobarConfiguracion } from './seguridad';
-import { negocioValido, nombreValido, skuValido, descripcionValida, idValido, montoValido } from './validaciones';
 
 export function direccionDe(wallet: Pick<WalletFirma, 'publicKey'>): Address {
   if (!wallet.publicKey) throw new Error('Conecta tu wallet primero.');
@@ -17,62 +22,135 @@ export function direccionDe(wallet: Pick<WalletFirma, 'publicKey'>): Address {
 
 function firmante(wallet: WalletFirma) {
   comprobarConfiguracion();
-  // Representa la identidad que la wallet firmará después; no contiene claves.
-  // Los roles finales los establece el builder generado del cliente actual.
   return createNoopSigner(direccionDe(wallet));
 }
 
-/** Ejemplo resuelto: identidad, cuentas, instrucción y envío. */
-export async function crearRegistro(wallet: WalletFirma, connection: Connection, nombreNegocio: string, opciones?: OpcionesEnvio): Promise<string> {
-  nombreNegocio = negocioValido(nombreNegocio);
-  const owner = firmante(wallet);
-  const registro = pdaRegistro(nombreNegocio, owner.address);
-  const ix = getCrearRegistroInstruction({ owner, registro, nombreNegocio });
+async function obtenerPromotora(propietario: Address) {
+  const promotora = pdaPromotora(propietario);
+  const cuenta = await fetchMaybePromotora(rpc, promotora);
+  if (!cuenta.exists) throw new Error('Inicializa la promotora primero.');
+  return { promotora, data: cuenta.data };
+}
+
+export async function inicializarPromotora(wallet: WalletFirma, connection: Connection, opciones?: OpcionesEnvio): Promise<string> {
+  const propietario = firmante(wallet);
+  const promotora = pdaPromotora(propietario.address);
+  const ix = getInicializarPromotoraInstruction({ promotora, propietario });
   return enviar(ix, wallet, connection, opciones);
 }
 
-/** Ejercicio 1 del día 4: crear la cuenta Cliente y actualizar Registro. */
-export async function crearCliente(wallet: WalletFirma, connection: Connection, nombreNegocio: string, nombre: string, opciones?: OpcionesEnvio): Promise<string> {
-  nombreNegocio = negocioValido(nombreNegocio);
-  nombre = nombreValido(nombre);
-  const owner = firmante(wallet);
-  const registro = pdaRegistro(nombreNegocio, owner.address);
-  const id = await siguienteId(nombreNegocio, owner.address);
-  const cliente = pdaCliente(registro, id);
-  const ix = getCrearClienteInstruction({ owner, registro, cliente, nombre });
+export async function registrarBoxeador(
+  wallet: WalletFirma,
+  connection: Connection,
+  nombre: string,
+  peso: number,
+  categoria: Categoria,
+  opciones?: OpcionesEnvio
+): Promise<string> {
+  const nombreLimpio = nombre.trim();
+  if (!nombreLimpio) throw new Error('El nombre no puede estar vacío.');
+  if (nombreLimpio.length > 50) throw new Error('El nombre excede los 50 caracteres.');
+  if (peso <= 0) throw new Error('El peso debe ser mayor a cero.');
+
+  const propietario = firmante(wallet);
+  const { promotora, data } = await obtenerPromotora(propietario.address);
+  const boxeador = pdaBoxeador(promotora, data.boxeadorCounter);
+  const ix = getRegistrarBoxeadorInstruction({
+    promotora,
+    boxeador,
+    propietario,
+    nombre: nombreLimpio,
+    peso: BigInt(Math.round(peso)),
+    categoria,
+  });
   return enviar(ix, wallet, connection, opciones);
 }
 
-/** Ejercicio 2: mismo patrón con una Venta que depende del Cliente. */
-export async function registrarVenta(wallet: WalletFirma, connection: Connection, nombreNegocio: string, idCliente: number, sku: string, descripcion: string, monto: number, opciones?: OpcionesEnvio): Promise<string> {
-  nombreNegocio = negocioValido(nombreNegocio);
-  idCliente = idValido(idCliente);
-  sku = skuValido(sku);
-  descripcion = descripcionValida(descripcion);
-  monto = montoValido(monto);
-  const owner = firmante(wallet);
-  const { registro, cliente, venta } = cadena(nombreNegocio, owner.address, idCliente, sku);
-  const ix = getRegistrarVentaInstruction({ owner, registro, cliente, venta, idCliente, sku, descripcion, monto });
+export async function eliminarBoxeador(
+  wallet: WalletFirma,
+  connection: Connection,
+  idBoxeador: number,
+  opciones?: OpcionesEnvio
+): Promise<string> {
+  const propietario = firmante(wallet);
+  const promotora = pdaPromotora(propietario.address);
+  const boxeador = pdaBoxeador(promotora, idBoxeador);
+  const ix = getEliminarBoxeadorInstruction({ promotora, boxeador, propietario });
   return enviar(ix, wallet, connection, opciones);
 }
 
-export async function cambiarMonto(wallet: WalletFirma, connection: Connection, nombreNegocio: string, idCliente: number, sku: string, nuevoMonto: number, opciones?: OpcionesEnvio): Promise<string> {
-  nombreNegocio = negocioValido(nombreNegocio);
-  idCliente = idValido(idCliente);
-  sku = skuValido(sku);
-  nuevoMonto = montoValido(nuevoMonto);
-  const owner = firmante(wallet);
-  const { registro, cliente, venta } = cadena(nombreNegocio, owner.address, idCliente, sku);
-  const ix = getCambiarMontoInstruction({ owner, registro, cliente, venta, idCliente, sku, nuevoMonto });
+export async function crearTorneo(
+  wallet: WalletFirma,
+  connection: Connection,
+  nombre: string,
+  sede: string,
+  categoria: Categoria,
+  opciones?: OpcionesEnvio
+): Promise<string> {
+  const nombreLimpio = nombre.trim();
+  const sedeLimpia = sede.trim();
+  if (!nombreLimpio) throw new Error('El nombre del torneo no puede estar vacío.');
+  if (!sedeLimpia) throw new Error('La sede no puede estar vacía.');
+
+  const propietario = firmante(wallet);
+  const { promotora, data } = await obtenerPromotora(propietario.address);
+  const torneo = pdaTorneo(promotora, data.torneoCounter);
+  const ix = getCrearTorneoInstruction({
+    promotora,
+    torneo,
+    propietario,
+    nombre: nombreLimpio,
+    sede: sedeLimpia,
+    categoria,
+  });
   return enviar(ix, wallet, connection, opciones);
 }
 
-export async function hacerDevolucion(wallet: WalletFirma, connection: Connection, nombreNegocio: string, idCliente: number, sku: string, opciones?: OpcionesEnvio): Promise<string> {
-  nombreNegocio = negocioValido(nombreNegocio);
-  idCliente = idValido(idCliente);
-  sku = skuValido(sku);
-  const owner = firmante(wallet);
-  const { registro, cliente, venta } = cadena(nombreNegocio, owner.address, idCliente, sku);
-  const ix = getHacerDevolucionInstruction({ owner, registro, cliente, venta, idCliente, sku });
+export async function registrarPelea(
+  wallet: WalletFirma,
+  connection: Connection,
+  idTorneo: number,
+  idBoxeadorRojo: number,
+  idBoxeadorAzul: number,
+  opciones?: OpcionesEnvio
+): Promise<string> {
+  if (idBoxeadorRojo === idBoxeadorAzul) throw new Error('El boxeador rojo y azul deben ser distintos.');
+
+  const propietario = firmante(wallet);
+  const { promotora, data } = await obtenerPromotora(propietario.address);
+  const pelea = pdaPelea(promotora, data.peleaCounter);
+  const torneo = pdaTorneo(promotora, idTorneo);
+  const boxeadorRojo = pdaBoxeador(promotora, idBoxeadorRojo);
+  const boxeadorAzul = pdaBoxeador(promotora, idBoxeadorAzul);
+
+  const ix = getRegistrarPeleaInstruction({
+    promotora,
+    pelea,
+    torneo,
+    boxeadorRojo,
+    boxeadorAzul,
+    propietario,
+  });
+  return enviar(ix, wallet, connection, opciones);
+}
+
+export async function eliminarPelea(
+  wallet: WalletFirma,
+  connection: Connection,
+  idPelea: number,
+  boxeadorRojo: Address,
+  boxeadorAzul: Address,
+  opciones?: OpcionesEnvio
+): Promise<string> {
+  const propietario = firmante(wallet);
+  const promotora = pdaPromotora(propietario.address);
+  const pelea = pdaPelea(promotora, idPelea);
+  const ix = getEliminarPeleaInstruction({
+    promotora,
+    pelea,
+    boxeadorRojo,
+    boxeadorAzul,
+    propietario,
+  });
   return enviar(ix, wallet, connection, opciones);
 }

@@ -19,14 +19,12 @@ import {
   fixEncoderSize,
   getAddressDecoder,
   getAddressEncoder,
-  getArrayDecoder,
-  getArrayEncoder,
+  getBooleanDecoder,
+  getBooleanEncoder,
   getBytesDecoder,
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
-  getU16Decoder,
-  getU16Encoder,
   getU32Decoder,
   getU32Encoder,
   getUtf8Decoder,
@@ -48,125 +46,139 @@ import {
   type MaybeEncodedAccount,
   type ReadonlyUint8Array,
 } from "@solana/kit";
+import {
+  getCategoriaDecoder,
+  getCategoriaEncoder,
+  type Categoria,
+  type CategoriaArgs,
+} from "../types";
 
-export const CLIENTE_DISCRIMINATOR: ReadonlyUint8Array = new Uint8Array([
-  126, 253, 118, 23, 130, 179, 29, 228,
+export const TORNEO_DISCRIMINATOR: ReadonlyUint8Array = new Uint8Array([
+  235, 136, 255, 168, 232, 234, 242, 250,
 ]);
 
-export function getClienteDiscriminatorBytes(): ReadonlyUint8Array {
-  return fixEncoderSize(getBytesEncoder(), 8).encode(CLIENTE_DISCRIMINATOR);
+export function getTorneoDiscriminatorBytes(): ReadonlyUint8Array {
+  return fixEncoderSize(getBytesEncoder(), 8).encode(TORNEO_DISCRIMINATOR);
 }
 
-export type Cliente = {
+export type Torneo = {
   discriminator: ReadonlyUint8Array;
-  idCliente: number;
+  idTorneo: number;
+  promotora: Address;
   nombre: string;
-  compras: number;
-  historial: Array<Address>;
+  sede: string;
+  categoria: Categoria;
+  activo: boolean;
 };
 
-export type ClienteArgs = {
-  idCliente: number;
+export type TorneoArgs = {
+  idTorneo: number;
+  promotora: Address | HasAddress;
   nombre: string;
-  compras: number;
-  historial: Array<Address | HasAddress>;
+  sede: string;
+  categoria: CategoriaArgs;
+  activo: boolean;
 };
 
-/** Gets the encoder for {@link ClienteArgs} account data. */
-export function getClienteEncoder(): Encoder<ClienteArgs> {
+/** Gets the encoder for {@link TorneoArgs} account data. */
+export function getTorneoEncoder(): Encoder<TorneoArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
-      ["idCliente", getU16Encoder()],
+      ["idTorneo", getU32Encoder()],
+      ["promotora", getAddressEncoder()],
       ["nombre", addEncoderSizePrefix(getUtf8Encoder(), getU32Encoder())],
-      ["compras", getU16Encoder()],
-      ["historial", getArrayEncoder(getAddressEncoder())],
+      ["sede", addEncoderSizePrefix(getUtf8Encoder(), getU32Encoder())],
+      ["categoria", getCategoriaEncoder()],
+      ["activo", getBooleanEncoder()],
     ]),
-    (value) => ({ ...value, discriminator: CLIENTE_DISCRIMINATOR }),
+    (value) => ({ ...value, discriminator: TORNEO_DISCRIMINATOR }),
   );
 }
 
-/** Gets the decoder for {@link Cliente} account data. */
-export function getClienteDecoder(): Decoder<Cliente> {
+/** Gets the decoder for {@link Torneo} account data. */
+export function getTorneoDecoder(): Decoder<Torneo> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
-    ["idCliente", getU16Decoder()],
+    ["idTorneo", getU32Decoder()],
+    ["promotora", getAddressDecoder()],
     ["nombre", addDecoderSizePrefix(getUtf8Decoder(), getU32Decoder())],
-    ["compras", getU16Decoder()],
-    ["historial", getArrayDecoder(getAddressDecoder())],
+    ["sede", addDecoderSizePrefix(getUtf8Decoder(), getU32Decoder())],
+    ["categoria", getCategoriaDecoder()],
+    ["activo", getBooleanDecoder()],
   ]);
 }
 
-/** Gets the codec for {@link Cliente} account data. */
-export function getClienteCodec(): Codec<ClienteArgs, Cliente> {
-  return combineCodec(getClienteEncoder(), getClienteDecoder());
+/** Gets the codec for {@link Torneo} account data. */
+export function getTorneoCodec(): Codec<TorneoArgs, Torneo> {
+  return combineCodec(getTorneoEncoder(), getTorneoDecoder());
 }
 
-export function decodeCliente<TAddress extends string = string>(
+export function decodeTorneo<TAddress extends string = string>(
   encodedAccount: EncodedAccount<TAddress>,
-): Account<Cliente, TAddress>;
-export function decodeCliente<TAddress extends string = string>(
+): Account<Torneo, TAddress>;
+export function decodeTorneo<TAddress extends string = string>(
   encodedAccount: MaybeEncodedAccount<TAddress>,
-): MaybeAccount<Cliente, TAddress>;
-export function decodeCliente<TAddress extends string = string>(
+): MaybeAccount<Torneo, TAddress>;
+export function decodeTorneo<TAddress extends string = string>(
   encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>,
-): Account<Cliente, TAddress> | MaybeAccount<Cliente, TAddress> {
+): Account<Torneo, TAddress> | MaybeAccount<Torneo, TAddress> {
   return decodeAccount(
     encodedAccount as MaybeEncodedAccount<TAddress>,
-    getClienteDecoder(),
+    getTorneoDecoder(),
   );
 }
 
-export async function fetchCliente<TAddress extends string = string>(
+export async function fetchTorneo<TAddress extends string = string>(
   rpc:
     | Parameters<typeof fetchEncodedAccount>[0]
     | ClientWithRpc<GetAccountInfoApi>,
   address: Address<TAddress> | HasAddress<TAddress>,
   config?: FetchAccountConfig,
-): Promise<Account<Cliente, TAddress>> {
-  const maybeAccount = await fetchMaybeCliente(rpc, address, config);
+): Promise<Account<Torneo, TAddress>> {
+  const maybeAccount = await fetchMaybeTorneo(rpc, address, config);
   assertAccountExists(maybeAccount);
   return maybeAccount;
 }
 
-export async function fetchMaybeCliente<TAddress extends string = string>(
+export async function fetchMaybeTorneo<TAddress extends string = string>(
   rpc:
     | Parameters<typeof fetchEncodedAccount>[0]
     | ClientWithRpc<GetAccountInfoApi>,
   address: Address<TAddress> | HasAddress<TAddress>,
   config?: FetchAccountConfig,
-): Promise<MaybeAccount<Cliente, TAddress>> {
+): Promise<MaybeAccount<Torneo, TAddress>> {
   const maybeAccount = await fetchEncodedAccount(
     "rpc" in rpc ? rpc.rpc : rpc,
     typeof address === "string" ? address : address.address,
     config,
   );
-  return decodeCliente(maybeAccount);
+  return decodeTorneo(maybeAccount);
 }
 
-export async function fetchAllCliente(
+export async function fetchAllTorneo(
   rpc:
     | Parameters<typeof fetchEncodedAccounts>[0]
     | ClientWithRpc<GetMultipleAccountsApi>,
   addresses: Array<Address | HasAddress>,
   config?: FetchAccountsConfig,
-): Promise<Account<Cliente>[]> {
-  const maybeAccounts = await fetchAllMaybeCliente(rpc, addresses, config);
+): Promise<Account<Torneo>[]> {
+  const maybeAccounts = await fetchAllMaybeTorneo(rpc, addresses, config);
   assertAccountsExist(maybeAccounts);
   return maybeAccounts;
 }
 
-export async function fetchAllMaybeCliente(
+export async function fetchAllMaybeTorneo(
   rpc:
     | Parameters<typeof fetchEncodedAccounts>[0]
     | ClientWithRpc<GetMultipleAccountsApi>,
   addresses: Array<Address | HasAddress>,
   config?: FetchAccountsConfig,
-): Promise<MaybeAccount<Cliente>[]> {
+): Promise<MaybeAccount<Torneo>[]> {
   const maybeAccounts = await fetchEncodedAccounts(
     "rpc" in rpc ? rpc.rpc : rpc,
     addresses.map((a) => (typeof a === "string" ? a : a.address)),
     config,
   );
-  return maybeAccounts.map((maybeAccount) => decodeCliente(maybeAccount));
+  return maybeAccounts.map((maybeAccount) => decodeTorneo(maybeAccount));
 }

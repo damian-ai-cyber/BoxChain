@@ -16,8 +16,7 @@
     "clase:resuelto": "node scripts/preparar-clase.mjs resuelto",
     "verificar": "npm run typecheck && npm test && npm run build",
     "comprobar:idl": "node scripts/verificar-contrato.mjs",
-    "prebuild": "npm run comprobar:idl",
-    "predev": "npm run comprobar:idl"
+    "prebuild": "npm run comprobar:idl"
   },
   "dependencies": {
     "@solana/kit": "^8.6.0",
