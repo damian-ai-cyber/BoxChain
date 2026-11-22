@@ -44,6 +44,7 @@ git clone <URL_DE_TU_REPOSITORIO>
 cd BoxChain
 npm install
 npm run dev
+```
 
 ## Autor
 
